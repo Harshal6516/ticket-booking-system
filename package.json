@@ -1,0 +1,16 @@
+{
+  "name": "ticket-booking-system",
+  "version": "1.0.0",
+  "description": "Full-stack ticket booking platform for movies and concerts with real-time seat maps, waitlist, and QR code tickets",
+  "private": true,
+  "scripts": {
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm run dev",
+    "build:backend": "cd backend && npm run build",
+    "build:frontend": "cd frontend && npm run build",
+    "install:all": "cd backend && npm install && cd ../frontend && npm install",
+    "db:migrate": "cd backend && npm run db:migrate"
+  },
+  "keywords": ["ticket-booking", "seat-map", "real-time", "waitlist"],
+  "license": "ISC"
+}
