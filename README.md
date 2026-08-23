@@ -7,7 +7,7 @@ A full-stack ticketing platform designed to handle massive traffic spikes and co
 *   **Atomic Seat Reservations**: Rock-solid concurrency handling using PostgreSQL conditional updates. Prevents double-booking even under extreme load.
 *   **Real-time Seat Map**: Instant updates across all connected clients via Socket.io when seats are held, released, booked, or offered.
 *   **Smart Waitlist with Cascading Offers**: Automatic waitlist management. When a hold expires or a booking is cancelled, the system automatically offers the seat to the next person in line, with a timed acceptance window.
-*   **Automated Background Sweep**: A resilient background job engine using `node-cron` to continuously expire stale holds and process waitlist offers without relying on Redis.
+*   **Automated Background Sweep**: A resilient background job engine using `node-cron` to continuously expire stale holds and process waitlist offers without relying on Redis..
 *   **QR Code Ticketing**: Instantly generated QR codes on confirmed bookings, sent via email using Resend.
 *   **Role-based Access Control**: Distinct flows for Customers, Organisers (Event creation & dashboards), and Admins (Venue management).
 *   **Stunning Premium UI**: Glassmorphism, tailored color palettes, micro-animations, and dynamic seat map rendering built with Tailwind CSS v4.
@@ -85,4 +85,38 @@ node concurrency_test.js
 
 ## 📐 Architecture & Concurrency Model
 
-Please see [SYSTEM_DESIGN.md](./SYSTEM_DESIGN.md) for a deep dive into the architecture, database schema, and concurrency mechanisms.
+Please see [SYSTEM_DESIGN.md](./SYSTEM_DESIGN.md) for a deep dive into the architecture, database schema, and concurrency mechanisms (Fulfills Deliverable 4).
+
+## 🗄️ Database Schema Summary
+
+The core schema revolves around the following relationships (enforced natively in PostgreSQL):
+- `users`: Stores customers, organisers, and admins with `role` ENUM.
+- `venues` & `seat_layouts`: Organisers create physical venues. Pre-defined physical seats (Row A1, A2) mapped to categories.
+- `events` & `shows`: Events have multiple Shows (date/time).
+- `show_seats`: The central state machine. Maps physical seats to a specific show, tracking `status` (available, held, booked, offered), `held_by_user_id`, and `hold_expires_at`.
+- `bookings`: Finalized reservations with `idempotency_key` and QR code URLs.
+- `waitlist`: Tracks queue position per show per category.
+
+*(Full schema defined in `backend/src/db/migrations/001_initial_schema.sql`)*
+
+## 🌐 Core API Documentation
+
+### Auth & Users
+- `POST /api/auth/register`: Create a new user (Customer, Organiser, Admin).
+- `POST /api/auth/login`: Authenticate and receive JWT.
+
+### Events & Venues
+- `GET /api/events`: Browse events (Supports `?type=`, `?date=`, `?search=`).
+- `GET /api/events/:id`: View event details, shows, and pricing.
+- `POST /api/events`: (Organiser) Create an event.
+- `POST /api/venues`: (Admin) Create a venue with seat layout maps.
+
+### Bookings & Holds (Concurrency Critical)
+- `POST /api/shows/:showId/seats/hold`: Atomic seat reservation. Fails with 409 if seats are taken.
+- `POST /api/bookings`: Confirm hold. Requires `idempotencyKey` to prevent double-charging.
+- `GET /api/bookings/me`: View booking history.
+- `DELETE /api/bookings/:id`: Cancel booking, release seats, and trigger waitlist cascade.
+
+### Waitlist
+- `POST /api/waitlist`: Join waitlist for a sold-out category.
+- `POST /api/offers/:token/accept`: Accept an auto-assigned waitlist offer.
