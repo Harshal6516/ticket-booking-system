@@ -19,6 +19,7 @@ const createBookingSchema = z.object({
   seatIds: z.array(z.string().uuid()).min(1),
   customerName: z.string().min(1).max(255),
   customerEmail: z.string().email(),
+  idempotencyKey: z.string().optional(),
 });
 
 // ============================================================
@@ -32,8 +33,23 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
       return;
     }
 
-    const { showId, seatIds, customerName, customerEmail } = parsed.data;
+    const { showId, seatIds, customerName, customerEmail, idempotencyKey } = parsed.data;
     const userId = req.user!.id;
+
+    // Fast path: Check idempotency key before starting transaction
+    if (idempotencyKey) {
+      const existing = await pool.query(
+        'SELECT * FROM bookings WHERE user_id = $1 AND idempotency_key = $2',
+        [userId, idempotencyKey]
+      );
+      if (existing.rows.length > 0) {
+        res.status(200).json({
+          booking: existing.rows[0],
+          message: 'Returned existing booking (idempotency hit)',
+        });
+        return;
+      }
+    }
 
     const client = await pool.connect();
 
@@ -67,10 +83,10 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
 
       // Create booking record
       const bookingResult = await client.query(`
-        INSERT INTO bookings (user_id, show_id, seat_ids, booking_ref, customer_name, customer_email, qr_code_url)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        INSERT INTO bookings (user_id, show_id, seat_ids, booking_ref, customer_name, customer_email, qr_code_url, idempotency_key)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         RETURNING *
-      `, [userId, showId, seatIds, bookingRef, customerName, customerEmail, qrCodeUrl]);
+      `, [userId, showId, seatIds, bookingRef, customerName, customerEmail, qrCodeUrl, idempotencyKey || null]);
 
       await client.query('COMMIT');
 
@@ -135,8 +151,23 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
           totalPrice,
         },
       });
-    } catch (err) {
+    } catch (err: any) {
       await client.query('ROLLBACK');
+      
+      // Handle Postgres Unique Violation (23505) for idempotency key if concurrent insert happened
+      if (err.code === '23505' && idempotencyKey) {
+        const existing = await pool.query(
+          'SELECT * FROM bookings WHERE user_id = $1 AND idempotency_key = $2',
+          [userId, idempotencyKey]
+        );
+        if (existing.rows.length > 0) {
+          res.status(200).json({
+            booking: existing.rows[0],
+            message: 'Returned existing booking (idempotency hit)',
+          });
+          return;
+        }
+      }
       throw err;
     } finally {
       client.release();

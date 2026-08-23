@@ -77,7 +77,7 @@ export const seatsAPI = {
 // Bookings
 // ============================================================
 export const bookingsAPI = {
-  create: (data: { showId: string; seatIds: string[]; customerName: string; customerEmail: string }) =>
+  create: (data: { showId: string; seatIds: string[]; customerName: string; customerEmail: string; idempotencyKey?: string }) =>
     api.post('/bookings', data),
   mine: () => api.get('/bookings/me'),
   cancel: (id: string) => api.delete(`/bookings/${id}`),

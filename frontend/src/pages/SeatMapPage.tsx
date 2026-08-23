@@ -33,6 +33,7 @@ export default function SeatMapPage() {
   const [showBookingForm, setShowBookingForm] = useState(false);
   const [customerName, setCustomerName] = useState(user?.name || '');
   const [customerEmail, setCustomerEmail] = useState(user?.email || '');
+  const [idempotencyKey, setIdempotencyKey] = useState<string>('');
 
   // Fetch seats
   const fetchSeats = useCallback(async () => {
@@ -208,10 +209,17 @@ export default function SeatMapPage() {
       setMyHeldSeats(new Set(res.data.held));
       setHoldExpiresAt(new Date(res.data.holdExpiresAt));
       setSelectedSeats(new Set());
+      setIdempotencyKey(crypto.randomUUID());
       setShowBookingForm(true);
       fetchSeats(); // Refresh to see held state
     } catch (err: any) {
-      showToast('error', err.response?.data?.error || 'Failed to hold seats');
+      if (!err.response) {
+        showToast('error', 'Network error. Please check your connection.');
+      } else if (err.response.status === 409) {
+        showToast('error', 'Hold failed! One or more selected seats were just taken. Please select different seats.');
+      } else {
+        showToast('error', err.response?.data?.error || 'Failed to hold seats');
+      }
     } finally {
       setHoldLoading(false);
     }
@@ -231,6 +239,7 @@ export default function SeatMapPage() {
         seatIds: Array.from(myHeldSeats),
         customerName,
         customerEmail,
+        idempotencyKey,
       });
       showToast('success', 'Booking confirmed! Check your email for the QR ticket.');
       setMyHeldSeats(new Set());
@@ -238,7 +247,11 @@ export default function SeatMapPage() {
       setShowBookingForm(false);
       navigate('/bookings');
     } catch (err: any) {
-      showToast('error', err.response?.data?.error || 'Booking failed');
+      if (!err.response) {
+        showToast('error', 'Network error. Please try clicking confirm again.');
+      } else {
+        showToast('error', err.response?.data?.error || 'Booking failed');
+      }
     } finally {
       setBookingLoading(false);
     }

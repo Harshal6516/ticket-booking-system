@@ -44,7 +44,7 @@ cp .env.example .env
 # Edit .env with your DB credentials, Resend API key, and JWT secret
 
 # Run migrations to create schema
-npm run migrate
+npm run db:migrate
 
 # Start the development server
 npm run dev
@@ -59,16 +59,29 @@ npm install
 npm run dev
 ```
 
-## 🧪 Concurrency Testing
+## 🧪 Seeding the Database
 
-To prove the robustness of the system against race conditions, a concurrency test script is provided.
+To instantly populate the database with an Admin, an Organiser, a Venue, and a test Event (Coldplay Concert), run the seeder script from the root of the repository:
 
 ```bash
-cd backend
-npm install axios
-node ../concurrency_test.js
+node seed.js
 ```
-*Note: You must set the environment variables `TEST_SHOW_ID` and `TEST_SEAT_IDS` inside the script or pass them via CLI.*
+
+*Note: Make sure your database is running and `backend/.env` is fully configured before seeding.*
+
+## 🧪 Concurrency Testing
+
+To prove the robustness of the system against race conditions, a native concurrency test script is provided.
+
+```bash
+# Set your environment variables (powershell example)
+$env:TEST_SHOW_ID="<your-show-id>"
+$env:TEST_SEAT_IDS="<seat-id-1>,<seat-id-2>"
+
+# Run the test
+node concurrency_test.js
+```
+*Note: The script uses native Node.js `fetch` (requires Node v18+).*
 
 ## 📐 Architecture & Concurrency Model
 
