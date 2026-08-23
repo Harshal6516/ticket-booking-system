@@ -97,7 +97,7 @@ export async function sendBookingConfirmationEmail(params: {
         {
           filename: 'qrcode.png',
           content: base64Data,
-          content_type: 'image/png',
+          contentType: 'image/png',
         },
       ],
     });
