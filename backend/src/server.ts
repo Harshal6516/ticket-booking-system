@@ -2,6 +2,8 @@ import http from 'http';
 import { Server as SocketIOServer } from 'socket.io';
 import app from './app';
 import { env } from './config/env';
+import { setIO } from './socket';
+import { startSweepJob } from './jobs/sweepJob';
 
 const server = http.createServer(app);
 
@@ -14,6 +16,9 @@ const io = new SocketIOServer(server, {
     methods: ['GET', 'POST'],
   },
 });
+
+// Register the io instance globally so routes/services can access it
+setIO(io);
 
 io.on('connection', (socket) => {
   console.log(`Socket connected: ${socket.id}`);
@@ -34,8 +39,10 @@ io.on('connection', (socket) => {
   });
 });
 
-// Export io for use in routes and services
-export { io };
+// ============================================================
+// Start sweep job
+// ============================================================
+startSweepJob();
 
 // ============================================================
 // Start server
@@ -45,5 +52,6 @@ server.listen(env.PORT, () => {
   console.log(`   Environment: ${env.NODE_ENV}`);
   console.log(`   Frontend URL: ${env.FRONTEND_URL}`);
   console.log(`   Hold TTL: ${env.HOLD_TTL_MINUTES} minutes`);
-  console.log(`   Offer TTL: ${env.OFFER_TTL_MINUTES} minutes\n`);
+  console.log(`   Offer TTL: ${env.OFFER_TTL_MINUTES} minutes`);
+  console.log(`   Sweep interval: ${env.SWEEP_INTERVAL_MS}ms\n`);
 });
