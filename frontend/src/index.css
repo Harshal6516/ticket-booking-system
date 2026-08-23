@@ -1,0 +1,427 @@
+@import "tailwindcss";
+
+/* ============================================================
+   Custom Design System
+   ============================================================ */
+
+@theme {
+  --color-primary: #667eea;
+  --color-primary-light: #7c94f4;
+  --color-primary-dark: #4c63d2;
+  --color-secondary: #764ba2;
+  --color-accent: #f093fb;
+  --color-danger: #f5576c;
+  --color-success: #43e97b;
+  --color-warning: #f7971e;
+  --color-surface: #1a1a2e;
+  --color-surface-light: #16213e;
+  --color-surface-lighter: #1e2d4f;
+  --color-bg: #0f0f23;
+  --color-text: #e4e4f0;
+  --color-text-muted: #8b8ba7;
+  --color-border: #2a2a4a;
+}
+
+/* ============================================================
+   Base Styles
+   ============================================================ */
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ============================================================
+   Glass Card
+   ============================================================ */
+
+.glass-card {
+  background: rgba(22, 33, 62, 0.7);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(102, 126, 234, 0.15);
+  border-radius: 16px;
+  transition: all 0.3s ease;
+}
+
+.glass-card:hover {
+  border-color: rgba(102, 126, 234, 0.35);
+  box-shadow: 0 8px 32px rgba(102, 126, 234, 0.1);
+}
+
+/* ============================================================
+   Button Styles
+   ============================================================ */
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-secondary) 100%);
+  color: white;
+  padding: 12px 28px;
+  border: none;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  letter-spacing: 0.02em;
+}
+
+.btn-primary:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 24px rgba(102, 126, 234, 0.4);
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-danger {
+  background: linear-gradient(135deg, var(--color-danger) 0%, #e8445a 100%);
+  color: white;
+  padding: 10px 24px;
+  border: none;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn-danger:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 24px rgba(245, 87, 108, 0.4);
+}
+
+.btn-secondary {
+  background: transparent;
+  color: var(--color-primary);
+  padding: 10px 24px;
+  border: 1px solid var(--color-primary);
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn-secondary:hover {
+  background: rgba(102, 126, 234, 0.1);
+}
+
+/* ============================================================
+   Form Styles
+   ============================================================ */
+
+.form-input {
+  width: 100%;
+  padding: 12px 16px;
+  background: var(--color-surface-lighter);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  color: var(--color-text);
+  font-size: 0.95rem;
+  transition: all 0.3s ease;
+  outline: none;
+}
+
+.form-input:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15);
+}
+
+.form-input::placeholder {
+  color: var(--color-text-muted);
+}
+
+.form-label {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.form-select {
+  width: 100%;
+  padding: 12px 16px;
+  background: var(--color-surface-lighter);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  color: var(--color-text);
+  font-size: 0.95rem;
+  cursor: pointer;
+  outline: none;
+  appearance: none;
+  transition: all 0.3s ease;
+}
+
+.form-select:focus {
+  border-color: var(--color-primary);
+}
+
+/* ============================================================
+   Seat Map Styles
+   ============================================================ */
+
+.seat {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px 8px 4px 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 2px solid transparent;
+  position: relative;
+}
+
+.seat:hover:not(.seat-booked):not(.seat-held) {
+  transform: scale(1.15);
+  z-index: 10;
+}
+
+.seat-available {
+  background: rgba(67, 233, 123, 0.2);
+  border-color: rgba(67, 233, 123, 0.5);
+  color: var(--color-success);
+}
+
+.seat-available:hover {
+  background: rgba(67, 233, 123, 0.35);
+  box-shadow: 0 0 12px rgba(67, 233, 123, 0.3);
+}
+
+.seat-held {
+  background: rgba(247, 151, 30, 0.2);
+  border-color: rgba(247, 151, 30, 0.5);
+  color: var(--color-warning);
+  cursor: not-allowed;
+}
+
+.seat-booked {
+  background: rgba(245, 87, 108, 0.2);
+  border-color: rgba(245, 87, 108, 0.3);
+  color: var(--color-danger);
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.seat-offered {
+  background: rgba(240, 147, 251, 0.2);
+  border-color: rgba(240, 147, 251, 0.5);
+  color: var(--color-accent);
+  cursor: not-allowed;
+}
+
+.seat-selected {
+  background: rgba(102, 126, 234, 0.3);
+  border-color: var(--color-primary);
+  color: white;
+  box-shadow: 0 0 16px rgba(102, 126, 234, 0.4);
+  transform: scale(1.1);
+}
+
+.seat-my-hold {
+  background: rgba(102, 126, 234, 0.3);
+  border-color: var(--color-primary);
+  color: var(--color-primary-light);
+  animation: pulse-hold 2s ease-in-out infinite;
+}
+
+@keyframes pulse-hold {
+  0%, 100% { box-shadow: 0 0 8px rgba(102, 126, 234, 0.3); }
+  50% { box-shadow: 0 0 20px rgba(102, 126, 234, 0.6); }
+}
+
+/* ============================================================
+   Stage / Screen
+   ============================================================ */
+
+.screen {
+  background: linear-gradient(90deg, transparent, rgba(102, 126, 234, 0.3), transparent);
+  height: 4px;
+  border-radius: 50%;
+  margin: 0 auto 40px;
+  width: 60%;
+  position: relative;
+}
+
+.screen::after {
+  content: 'SCREEN';
+  position: absolute;
+  top: -24px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+/* ============================================================
+   Animations
+   ============================================================ */
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideIn {
+  from { opacity: 0; transform: translateX(-20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.9); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.4s ease forwards;
+}
+
+.animate-slide-in {
+  animation: slideIn 0.4s ease forwards;
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.3s ease forwards;
+}
+
+/* ============================================================
+   Scrollbar
+   ============================================================ */
+
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-bg);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-primary);
+}
+
+/* ============================================================
+   Badge / Pill
+   ============================================================ */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.badge-movie {
+  background: rgba(102, 126, 234, 0.15);
+  color: var(--color-primary-light);
+}
+
+.badge-concert {
+  background: rgba(240, 147, 251, 0.15);
+  color: var(--color-accent);
+}
+
+.badge-confirmed {
+  background: rgba(67, 233, 123, 0.15);
+  color: var(--color-success);
+}
+
+.badge-cancelled {
+  background: rgba(245, 87, 108, 0.15);
+  color: var(--color-danger);
+}
+
+.badge-waiting {
+  background: rgba(247, 151, 30, 0.15);
+  color: var(--color-warning);
+}
+
+.badge-offered {
+  background: rgba(240, 147, 251, 0.15);
+  color: var(--color-accent);
+}
+
+/* ============================================================
+   Toast
+   ============================================================ */
+
+.toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  padding: 16px 24px;
+  border-radius: 12px;
+  font-weight: 500;
+  z-index: 1000;
+  animation: slideInRight 0.3s ease forwards;
+  max-width: 400px;
+}
+
+.toast-success {
+  background: rgba(67, 233, 123, 0.15);
+  border: 1px solid rgba(67, 233, 123, 0.3);
+  color: var(--color-success);
+}
+
+.toast-error {
+  background: rgba(245, 87, 108, 0.15);
+  border: 1px solid rgba(245, 87, 108, 0.3);
+  color: var(--color-danger);
+}
+
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(100px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+/* ============================================================
+   Countdown Timer
+   ============================================================ */
+
+.countdown {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 14px;
+  background: rgba(247, 151, 30, 0.12);
+  border: 1px solid rgba(247, 151, 30, 0.3);
+  border-radius: 8px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-warning);
+  font-size: 0.9rem;
+}
+
+.countdown-urgent {
+  background: rgba(245, 87, 108, 0.12);
+  border-color: rgba(245, 87, 108, 0.3);
+  color: var(--color-danger);
+  animation: pulse-hold 1s ease-in-out infinite;
+}
