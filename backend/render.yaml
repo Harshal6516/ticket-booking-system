@@ -1,0 +1,31 @@
+services:
+  # The Node.js Backend API
+  - type: web
+    name: tickethub-api
+    env: node
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: tickethub-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: RESEND_API_KEY
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+      - key: HOLD_TTL_MINUTES
+        value: 10
+      - key: OFFER_TTL_MINUTES
+        value: 30
+      - key: SWEEP_INTERVAL_MS
+        value: 3000
+
+  # The PostgreSQL Database
+  - type: pgo
+    name: tickethub-db
+    plan: free
