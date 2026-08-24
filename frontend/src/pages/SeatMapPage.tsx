@@ -75,15 +75,15 @@ export default function SeatMapPage() {
 
   // Socket.io connection
   useEffect(() => {
-    if (!showId) return;
-
-    let socketUrl = import.meta.env.VITE_SOCKET_URL || import.meta.env.VITE_API_URL || window.location.origin;
+    const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+    let socketUrl = import.meta.env.VITE_SOCKET_URL || import.meta.env.VITE_API_URL || (isLocal ? window.location.origin : 'https://tickethub-api-l7iv.onrender.com');
     if (socketUrl && !socketUrl.startsWith('http://') && !socketUrl.startsWith('https://') && !socketUrl.startsWith('/')) {
       socketUrl = `https://${socketUrl}`;
     }
     const newSocket = io(socketUrl, {
       transports: ['websocket', 'polling'],
     });
+
 
 
 

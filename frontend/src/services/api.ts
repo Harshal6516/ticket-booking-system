@@ -1,16 +1,17 @@
 import axios from 'axios';
 
-let apiBase = (import.meta.env.VITE_API_URL || '/api').trim();
+const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+
+let apiBase = (import.meta.env.VITE_API_URL || (isLocal ? 'http://localhost:3000' : 'https://tickethub-api-l7iv.onrender.com')).trim();
 
 if (apiBase && !apiBase.startsWith('http://') && !apiBase.startsWith('https://') && !apiBase.startsWith('/')) {
   apiBase = `https://${apiBase}`;
 }
 apiBase = apiBase.replace(/\/+$/, '');
 
-
-
 const api = axios.create({
   baseURL: apiBase,
+
 
   headers: {
     'Content-Type': 'application/json',
