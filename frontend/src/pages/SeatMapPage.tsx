@@ -77,9 +77,11 @@ export default function SeatMapPage() {
   useEffect(() => {
     if (!showId) return;
 
-    const newSocket = io(window.location.origin, {
+    const socketUrl = import.meta.env.VITE_SOCKET_URL || import.meta.env.VITE_API_URL || window.location.origin;
+    const newSocket = io(socketUrl, {
       transports: ['websocket', 'polling'],
     });
+
 
     newSocket.on('connect', () => {
       newSocket.emit('join:show', showId);
