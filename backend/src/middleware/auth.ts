@@ -26,3 +26,21 @@ export function authenticate(
     return;
   }
 }
+
+export function optionalAuth(
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): void {
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.split(' ')[1];
+    try {
+      const decoded = jwt.verify(token, env.JWT_SECRET) as JwtPayload;
+      req.user = decoded;
+    } catch (err) {
+      // Ignore errors for optional auth
+    }
+  }
+  next();
+}

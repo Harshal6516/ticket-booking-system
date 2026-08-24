@@ -172,10 +172,11 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
     } finally {
       client.release();
     }
-  } catch (err) {
-    console.error('Create booking error:', err);
-    res.status(500).json({ error: 'Internal server error' });
-  }
+    } catch (err: any) {
+      console.error('Create booking error:', err);
+      require('fs').appendFileSync('backend_error.log', new Date().toISOString() + ' ' + (err.stack || err) + '\n');
+      res.status(500).json({ error: 'Internal server error' });
+    }
 });
 
 // ============================================================

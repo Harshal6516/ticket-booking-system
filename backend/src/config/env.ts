@@ -11,18 +11,27 @@ export const env = {
   FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:5173',
   HOLD_TTL_MINUTES: parseInt(process.env.HOLD_TTL_MINUTES || '10', 10),
   OFFER_TTL_MINUTES: parseInt(process.env.OFFER_TTL_MINUTES || '30', 10),
-  RESEND_API_KEY: process.env.RESEND_API_KEY || '',
-  FROM_EMAIL: process.env.FROM_EMAIL || 'tickets@yourdomain.com',
+  
+  // Email / SMTP Configuration
+  SMTP_HOST: process.env.SMTP_HOST || '',
+  SMTP_PORT: parseInt(process.env.SMTP_PORT || '587', 10),
+  SMTP_SECURE: process.env.SMTP_SECURE === 'true',
+  SMTP_USER: process.env.SMTP_USER || '',
+  SMTP_PASS: process.env.SMTP_PASS || '',
+  FROM_EMAIL: process.env.FROM_EMAIL || 'tickets@tickethub.local',
+  FROM_NAME: process.env.FROM_NAME || 'TicketHub',
+
   SWEEP_INTERVAL_MS: parseInt(process.env.SWEEP_INTERVAL_MS || '3000', 10),
   NODE_ENV: process.env.NODE_ENV || 'development',
 } as const;
 
 // Validate required env vars in production
 if (env.NODE_ENV === 'production') {
-  const required = ['DATABASE_URL', 'JWT_SECRET', 'RESEND_API_KEY'] as const;
+  const required = ['DATABASE_URL', 'JWT_SECRET'] as const;
   for (const key of required) {
     if (!process.env[key]) {
       throw new Error(`Missing required environment variable: ${key}`);
     }
   }
 }
+

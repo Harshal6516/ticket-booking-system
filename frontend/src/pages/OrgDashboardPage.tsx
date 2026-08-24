@@ -1,13 +1,21 @@
-import { useState, useEffect } from 'react';
-import { eventsAPI } from '../services/api';
+import { useState, useEffect, useCallback } from 'react';
+import { eventsAPI, venuesAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { showToast } from '../components/Toast';
+
+interface Venue {
+  id: string;
+  name: string;
+  address: string;
+  total_seats?: string | number;
+}
 
 export default function OrgDashboardPage() {
   const { user, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const [events, setEvents] = useState<any[]>([]);
+  const [venues, setVenues] = useState<Venue[]>([]);
   const [selectedEvent, setSelectedEvent] = useState<string | null>(null);
   const [summary, setSummary] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -25,18 +33,10 @@ export default function OrgDashboardPage() {
   const [standardPrice, setStandardPrice] = useState('200');
   const [creating, setCreating] = useState(false);
 
-  useEffect(() => {
-    if (!isAuthenticated || user?.role !== 'organiser') {
-      navigate('/');
-      return;
-    }
-    fetchEvents();
-  }, [isAuthenticated, user]);
-
-  const fetchEvents = async () => {
+  const fetchEvents = useCallback(async () => {
     try {
       const res = await eventsAPI.list();
-      // Filter to only this organiser's events (frontend filter since API is public)
+      // Filter to only this organiser's events
       const myEvents = res.data.events.filter((e: any) => e.organiser_id === user?.id);
       setEvents(myEvents);
     } catch (err) {
@@ -44,7 +44,28 @@ export default function OrgDashboardPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user?.id]);
+
+  const fetchVenues = useCallback(async () => {
+    try {
+      const res = await venuesAPI.list();
+      setVenues(res.data.venues || []);
+      if (res.data.venues?.length > 0 && !venueId) {
+        setVenueId(res.data.venues[0].id);
+      }
+    } catch (err) {
+      console.error('Failed to fetch venues:', err);
+    }
+  }, [venueId]);
+
+  useEffect(() => {
+    if (!isAuthenticated || user?.role !== 'organiser') {
+      navigate('/');
+      return;
+    }
+    fetchEvents();
+    fetchVenues();
+  }, [isAuthenticated, user, navigate, fetchEvents, fetchVenues]);
 
   const fetchSummary = async (eventId: string) => {
     setSummaryLoading(true);
@@ -61,6 +82,10 @@ export default function OrgDashboardPage() {
 
   const handleCreateEvent = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!venueId) {
+      showToast('error', 'Please select a venue');
+      return;
+    }
     setCreating(true);
     try {
       await eventsAPI.create({
@@ -76,6 +101,10 @@ export default function OrgDashboardPage() {
       });
       showToast('success', 'Event created successfully');
       setShowCreateForm(false);
+      setTitle('');
+      setDescription('');
+      setShowDate('');
+      setShowTime('');
       fetchEvents();
     } catch (err: any) {
       showToast('error', err.response?.data?.error || 'Failed to create event');
@@ -83,13 +112,6 @@ export default function OrgDashboardPage() {
       setCreating(false);
     }
   };
-
-  // Fetch venues for the create form (we'll use a simple approach)
-  useEffect(() => {
-    // Venues are admin-only in the API, so organisers can't list them directly.
-    // We'll extract venues from events data or you may need to make /venues public for listing.
-    // For now, we'll use the venue IDs from events.
-  }, []);
 
   if (loading) {
     return (
@@ -104,7 +126,7 @@ export default function OrgDashboardPage() {
       <div className="flex items-center justify-between mb-8">
         <h1 className="text-3xl font-bold animate-fade-in">Organiser Dashboard</h1>
         <button onClick={() => setShowCreateForm(!showCreateForm)} className="btn-primary">
-          + New Event
+          {showCreateForm ? 'Close Form' : '+ New Event'}
         </button>
       </div>
 
@@ -126,8 +148,33 @@ export default function OrgDashboardPage() {
                 </select>
               </div>
               <div>
-                <label className="form-label" htmlFor="event-venue">Venue ID</label>
-                <input id="event-venue" type="text" className="form-input" value={venueId} onChange={(e) => setVenueId(e.target.value)} placeholder="Paste venue UUID" required />
+                <label className="form-label" htmlFor="event-venue">Venue</label>
+                {venues.length > 0 ? (
+                  <select
+                    id="event-venue"
+                    className="form-select"
+                    value={venueId}
+                    onChange={(e) => setVenueId(e.target.value)}
+                    required
+                  >
+                    <option value="" disabled>Select a venue...</option>
+                    {venues.map((v) => (
+                      <option key={v.id} value={v.id}>
+                        {v.name} ({v.address})
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    id="event-venue"
+                    type="text"
+                    className="form-input"
+                    value={venueId}
+                    onChange={(e) => setVenueId(e.target.value)}
+                    placeholder="Enter or paste venue UUID"
+                    required
+                  />
+                )}
               </div>
               <div>
                 <label className="form-label" htmlFor="event-description">Description</label>

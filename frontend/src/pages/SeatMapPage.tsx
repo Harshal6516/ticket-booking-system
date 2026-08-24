@@ -46,13 +46,20 @@ export default function SeatMapPage() {
       // Identify my held seats
       if (user) {
         const myHolds = new Set<string>();
+        let expiryDate: Date | null = null;
         for (const seat of res.data.seats) {
-          if (seat.status === 'held' && seat.holdExpiresAt) {
-            // We can't see held_by_user_id from the API for security,
-            // but we track what we hold via the hold response
+          if (seat.status === 'held' && seat.isMyHold) {
+            myHolds.add(seat.id);
+            if (seat.holdExpiresAt) {
+              expiryDate = new Date(seat.holdExpiresAt);
+            }
           }
         }
         setMyHeldSeats(myHolds);
+        if (myHolds.size > 0) {
+          setHoldExpiresAt(expiryDate);
+          setShowBookingForm(true);
+        }
       }
     } catch (err) {
       console.error('Failed to fetch seats:', err);

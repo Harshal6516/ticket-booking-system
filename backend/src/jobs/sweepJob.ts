@@ -2,6 +2,7 @@ import pool from '../db/pool';
 import { getIO } from '../socket';
 import { v4 as uuidv4 } from 'uuid';
 import { env } from '../config/env';
+import { sendWaitlistOfferEmail } from '../services/emailService';
 
 /**
  * Sweep job that runs every SWEEP_INTERVAL_MS milliseconds.
@@ -170,8 +171,41 @@ export async function offerSeatToWaitlist(
       console.error('[Waitlist] Socket emit error:', socketErr);
     }
 
-    // Send offer email (will be handled by email service)
     console.log(`[Waitlist] Seat ${seatId} offered to user ${waitlistEntry.user_id}, token: ${offerToken}`);
+
+    // Fetch user and show/event/venue details to send waitlist offer email
+    try {
+      const userRes = await pool.query(
+        'SELECT name, email FROM users WHERE id = $1',
+        [waitlistEntry.user_id]
+      );
+      const showRes = await pool.query(`
+        SELECT s.date, s.time, e.title as event_title, v.name as venue_name
+        FROM shows s
+        JOIN events e ON s.event_id = e.id
+        JOIN venues v ON e.venue_id = v.id
+        WHERE s.id = $1
+      `, [showId]);
+
+      if (userRes.rows.length > 0 && showRes.rows.length > 0) {
+        const user = userRes.rows[0];
+        const show = showRes.rows[0];
+
+        sendWaitlistOfferEmail({
+          to: user.email,
+          customerName: user.name,
+          eventTitle: show.event_title,
+          showDate: show.date,
+          showTime: show.time,
+          venueName: show.venue_name,
+          category,
+          offerToken,
+          expiresAt: offerExpiresAt,
+        }).catch((emailErr) => console.error('[Waitlist] Offer email failed:', emailErr));
+      }
+    } catch (fetchErr) {
+      console.error('[Waitlist] Failed to fetch details for offer email:', fetchErr);
+    }
 
     return true;
   } catch (err) {
@@ -182,6 +216,7 @@ export async function offerSeatToWaitlist(
     client.release();
   }
 }
+
 
 /**
  * Start the sweep job on a timer

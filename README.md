@@ -8,7 +8,7 @@ A full-stack ticketing platform designed to handle massive traffic spikes and co
 *   **Real-time Seat Map**: Instant updates across all connected clients via Socket.io when seats are held, released, booked, or offered.
 *   **Smart Waitlist with Cascading Offers**: Automatic waitlist management. When a hold expires or a booking is cancelled, the system automatically offers the seat to the next person in line, with a timed acceptance window.
 *   **Automated Background Sweep**: A resilient background job engine using `node-cron` to continuously expire stale holds and process waitlist offers without relying on Redis..
-*   **QR Code Ticketing**: Instantly generated QR codes on confirmed bookings, sent via email using Resend.
+*   **QR Code Ticketing**: Instantly generated QR codes on confirmed bookings, sent via email using Nodemailer (supports SMTP / Gmail / Brevo / Ethereal test inbox).
 *   **Role-based Access Control**: Distinct flows for Customers, Organisers (Event creation & dashboards), and Admins (Venue management).
 *   **Stunning Premium UI**: Glassmorphism, tailored color palettes, micro-animations, and dynamic seat map rendering built with Tailwind CSS v4.
 
@@ -18,7 +18,7 @@ A full-stack ticketing platform designed to handle massive traffic spikes and co
 *   **Database**: PostgreSQL (Single source of truth)
 *   **Real-time**: Socket.io
 *   **Frontend**: React 19, Vite, Tailwind CSS v4
-*   **Email**: Resend
+*   **Email**: Nodemailer (SMTP / Ethereal)
 *   **Auth**: JWT
 
 ## ⚙️ Running Locally
@@ -26,7 +26,7 @@ A full-stack ticketing platform designed to handle massive traffic spikes and co
 ### Prerequisites
 *   Node.js v20+
 *   PostgreSQL running locally or a cloud database URL
-*   Resend API Key
+*   (Optional) SMTP credentials for real email delivery, or use automated Ethereal test inbox
 
 ### 1. Database Setup
 ```bash
@@ -41,7 +41,8 @@ npm install
 
 # Create .env file
 cp .env.example .env
-# Edit .env with your DB credentials, Resend API key, and JWT secret
+# Edit .env with your DB credentials and JWT secret
+
 
 # Run migrations to create schema
 npm run db:migrate

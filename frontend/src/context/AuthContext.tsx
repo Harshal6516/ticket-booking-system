@@ -27,7 +27,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const savedUser = localStorage.getItem('user');
-    if (savedUser && token) {
+    const savedToken = localStorage.getItem('token');
+    if (savedUser && savedToken) {
       try {
         setUser(JSON.parse(savedUser));
       } catch {
@@ -37,6 +38,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     setLoading(false);
   }, []);
+
 
   const login = async (email: string, password: string) => {
     const response = await authAPI.login({ email, password });

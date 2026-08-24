@@ -2,7 +2,7 @@ import { Router, Response } from 'express';
 import { z } from 'zod';
 import pool from '../db/pool';
 import { AuthRequest } from '../types';
-import { authenticate } from '../middleware/auth';
+import { authenticate, optionalAuth } from '../middleware/auth';
 import { env } from '../config/env';
 import { getIO } from '../socket';
 
@@ -19,7 +19,7 @@ const holdSchema = z.object({
 // GET /events/:eventId/shows/:showId/seats
 // Returns all seats with category, price, status, row, seat number
 // ============================================================
-router.get('/events/:eventId/shows/:showId/seats', async (req: AuthRequest, res: Response) => {
+router.get('/events/:eventId/shows/:showId/seats', optionalAuth, async (req: AuthRequest, res: Response) => {
   try {
     const { eventId, showId } = req.params;
 
@@ -42,6 +42,7 @@ router.get('/events/:eventId/shows/:showId/seats', async (req: AuthRequest, res:
         ss.category,
         ss.status,
         ss.hold_expires_at,
+        ss.held_by_user_id,
         sl.row_label,
         sl.seat_number,
         ep.price
@@ -67,6 +68,7 @@ router.get('/events/:eventId/shows/:showId/seats', async (req: AuthRequest, res:
         seatNumber: seat.seat_number,
         price: parseFloat(seat.price),
         holdExpiresAt: seat.hold_expires_at,
+        isMyHold: seat.held_by_user_id === req.user?.id,
       });
     }
 
@@ -81,6 +83,7 @@ router.get('/events/:eventId/shows/:showId/seats', async (req: AuthRequest, res:
         seatNumber: s.seat_number,
         price: parseFloat(s.price),
         holdExpiresAt: s.hold_expires_at,
+        isMyHold: s.held_by_user_id === req.user?.id,
       })),
       seatsByRow,
     });
@@ -118,15 +121,16 @@ router.post('/shows/:id/seats/hold', authenticate, async (req: AuthRequest, res:
     try {
       await client.query('BEGIN');
 
-      // Release any existing holds by this user for this show (user changed selection)
-      await client.query(`
+      // Release any existing holds by this user for this show that are NOT in the new seatIds
+      const releasedResult = await client.query(`
         UPDATE show_seats
         SET status = 'available', held_by_user_id = NULL, hold_expires_at = NULL
-        WHERE show_id = $1 AND held_by_user_id = $2 AND status = 'held'
-      `, [showId, userId]);
+        WHERE show_id = $1 AND held_by_user_id = $2 AND status = 'held' AND NOT (id = ANY($3))
+        RETURNING id
+      `, [showId, userId, seatIds]);
 
       // Attempt to hold each seat atomically
-      // The WHERE status = 'available' clause ensures only available seats can be held
+      // The WHERE status IN ('available', 'held') ensures we can re-hold seats we already hold
       const holdResults = [];
       for (const seatId of seatIds) {
         const result = await client.query(`
@@ -134,7 +138,7 @@ router.post('/shows/:id/seats/hold', authenticate, async (req: AuthRequest, res:
           SET status = 'held',
               held_by_user_id = $1,
               hold_expires_at = NOW() + INTERVAL '${env.HOLD_TTL_MINUTES} minutes'
-          WHERE id = $2 AND status = 'available'
+          WHERE id = $2 AND (status = 'available' OR (status = 'held' AND held_by_user_id = $1))
           RETURNING id
         `, [userId, seatId]);
 
@@ -174,6 +178,13 @@ router.post('/shows/:id/seats/hold', authenticate, async (req: AuthRequest, res:
             category: s.category,
           })),
         });
+
+        // Broadcast released seats if any
+        if (releasedResult.rows.length > 0) {
+          io.to(`show:${showId}`).emit('seat:released', {
+            seats: releasedResult.rows.map(r => ({ id: r.id, status: 'available' })),
+          });
+        }
       } catch (socketErr) {
         // Socket.io failure shouldn't break the hold operation
         console.error('Socket emit error:', socketErr);

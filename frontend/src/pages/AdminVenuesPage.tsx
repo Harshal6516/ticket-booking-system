@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { venuesAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -27,15 +27,7 @@ export default function AdminVenuesPage() {
   const [premiumRows, setPremiumRows] = useState('A,B,C');
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    if (!isAuthenticated || user?.role !== 'admin') {
-      navigate('/');
-      return;
-    }
-    fetchVenues();
-  }, [isAuthenticated, user]);
-
-  const fetchVenues = async () => {
+  const fetchVenues = useCallback(async () => {
     try {
       const res = await venuesAPI.list();
       setVenues(res.data.venues);
@@ -44,7 +36,15 @@ export default function AdminVenuesPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (!isAuthenticated || user?.role !== 'admin') {
+      navigate('/');
+      return;
+    }
+    fetchVenues();
+  }, [isAuthenticated, user, navigate, fetchVenues]);
 
   const generateSeats = (): SeatDef[] => {
     const seats: SeatDef[] = [];
@@ -95,9 +95,11 @@ export default function AdminVenuesPage() {
       setShowForm(true);
       // Seat layout editing: just show the form with defaults
     } catch (err) {
+      console.error('Failed to load venue details:', err);
       showToast('error', 'Failed to load venue details');
     }
   };
+
 
   const resetForm = () => {
     setName('');

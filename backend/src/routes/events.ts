@@ -292,15 +292,12 @@ router.get('/organiser/summary/:id', authenticate, roleGuard('organiser'), async
     // Total revenue
     const totalRevenue = await pool.query(`
       SELECT COALESCE(SUM(ep.price), 0) as total_revenue
-      FROM bookings b
-      JOIN shows s ON b.show_id = s.id
-      JOIN event_pricing ep ON ep.event_id = s.event_id
-      WHERE s.event_id = $1
-      AND b.status = 'confirmed'
-      AND ep.category = ANY(
-        SELECT ss.category FROM show_seats ss WHERE ss.id = ANY(b.seat_ids)
-      )
+      FROM show_seats ss
+      JOIN shows s ON ss.show_id = s.id
+      JOIN event_pricing ep ON ep.event_id = s.event_id AND ep.category = ss.category
+      WHERE s.event_id = $1 AND ss.status = 'booked'
     `, [id]);
+
 
     // Waitlist stats
     const waitlistStats = await pool.query(`

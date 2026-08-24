@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { eventsAPI } from '../services/api';
 
@@ -22,7 +22,7 @@ export default function EventsPage() {
   const [dateFilter, setDateFilter] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
 
-  const fetchEvents = async () => {
+  const fetchEvents = useCallback(async () => {
     setLoading(true);
     try {
       const params: any = {};
@@ -36,11 +36,12 @@ export default function EventsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [typeFilter, dateFilter, searchQuery]);
 
   useEffect(() => {
     fetchEvents();
-  }, [typeFilter, dateFilter]);
+  }, [fetchEvents]);
+
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { waitlistAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -26,15 +26,7 @@ export default function WaitlistPage() {
   const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    if (!isAuthenticated) {
-      navigate('/login');
-      return;
-    }
-    fetchEntries();
-  }, [isAuthenticated]);
-
-  const fetchEntries = async () => {
+  const fetchEntries = useCallback(async () => {
     try {
       const res = await waitlistAPI.mine();
       setEntries(res.data.waitlistEntries);
@@ -43,7 +35,16 @@ export default function WaitlistPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      navigate('/login');
+      return;
+    }
+    fetchEntries();
+  }, [isAuthenticated, navigate, fetchEntries]);
+
 
   const statusBadge = (status: string) => {
     switch (status) {

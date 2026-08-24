@@ -29,9 +29,10 @@ const updateVenueSchema = z.object({
 });
 
 // ============================================================
-// GET /venues — list all venues (admin only)
+// GET /venues — list all venues (admin and organiser)
 // ============================================================
-router.get('/', authenticate, roleGuard('admin'), async (req: AuthRequest, res: Response) => {
+router.get('/', authenticate, roleGuard('admin', 'organiser'), async (req: AuthRequest, res: Response) => {
+
   try {
     const venues = await pool.query(`
       SELECT v.*, 

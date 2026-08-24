@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { bookingsAPI } from '../services/api';
 import { showToast } from '../components/Toast';
 import { useAuth } from '../context/AuthContext';
@@ -29,15 +29,7 @@ export default function BookingsPage() {
   const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    if (!isAuthenticated) {
-      navigate('/login');
-      return;
-    }
-    fetchBookings();
-  }, [isAuthenticated]);
-
-  const fetchBookings = async () => {
+  const fetchBookings = useCallback(async () => {
     try {
       const res = await bookingsAPI.mine();
       setBookings(res.data.bookings);
@@ -46,7 +38,16 @@ export default function BookingsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      navigate('/login');
+      return;
+    }
+    fetchBookings();
+  }, [isAuthenticated, navigate, fetchBookings]);
+
 
   const handleCancel = async (id: string) => {
     if (!confirm('Are you sure you want to cancel this booking?')) return;

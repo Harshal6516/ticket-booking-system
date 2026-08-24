@@ -1,13 +1,60 @@
-import { Resend } from 'resend';
+import nodemailer from 'nodemailer';
 import { env } from '../config/env';
 
-let resend: Resend | null = null;
+let transporter: nodemailer.Transporter | null = null;
+let isEthereal = false;
 
-function getResend(): Resend {
-  if (!resend) {
-    resend = new Resend(env.RESEND_API_KEY);
+/**
+ * Initializes or returns the cached nodemailer transporter.
+ * If SMTP credentials are provided, uses standard SMTP.
+ * Otherwise, falls back to an Ethereal test account with preview URLs.
+ */
+async function getTransporter(): Promise<nodemailer.Transporter> {
+  if (transporter) {
+    return transporter;
   }
-  return resend;
+
+  if (env.SMTP_HOST && env.SMTP_USER && env.SMTP_PASS) {
+    console.log(`[Email] Configuring SMTP transporter (${env.SMTP_HOST}:${env.SMTP_PORT})`);
+    transporter = nodemailer.createTransport({
+      host: env.SMTP_HOST,
+      port: env.SMTP_PORT,
+      secure: env.SMTP_SECURE,
+      auth: {
+        user: env.SMTP_USER,
+        pass: env.SMTP_PASS,
+      },
+    });
+    isEthereal = false;
+  } else {
+    console.log('[Email] No SMTP credentials provided. Creating Ethereal test account...');
+    try {
+      const testAccount = await nodemailer.createTestAccount();
+      transporter = nodemailer.createTransport({
+        host: 'smtp.ethereal.email',
+        port: 587,
+        secure: false,
+        auth: {
+          user: testAccount.user,
+          pass: testAccount.pass,
+        },
+      });
+      isEthereal = true;
+      console.log(`[Email] Ethereal test account initialized: ${testAccount.user}`);
+    } catch (etherealErr) {
+      console.warn('[Email] Failed to create Ethereal account, falling back to JSON console transporter:', etherealErr);
+      transporter = nodemailer.createTransport({
+        jsonTransport: true,
+      });
+      isEthereal = false;
+    }
+  }
+
+  return transporter;
+}
+
+function getSenderAddress(): string {
+  return `"${env.FROM_NAME}" <${env.FROM_EMAIL}>`;
 }
 
 /**
@@ -27,90 +74,123 @@ export async function sendBookingConfirmationEmail(params: {
 }): Promise<void> {
   const { to, customerName, bookingRef, eventTitle, showDate, showTime, venueName, seats, totalPrice, qrCodeDataUrl } = params;
 
-  if (!env.RESEND_API_KEY) {
-    console.log(`[Email] Skipping email (no API key configured). Booking: ${bookingRef}, To: ${to}`);
-    return;
-  }
-
   try {
-    // Convert data URL to base64 for attachment
-    const base64Data = qrCodeDataUrl.split(',')[1];
+    const t = await getTransporter();
 
-    await getResend().emails.send({
-      from: env.FROM_EMAIL,
-      to: [to],
-      subject: `🎫 Booking Confirmed — ${eventTitle}`,
+    // Extract base64 image data from data URL
+    const base64Data = qrCodeDataUrl.includes(',') ? qrCodeDataUrl.split(',')[1] : qrCodeDataUrl;
+
+    const formattedDate = new Date(showDate).toLocaleDateString('en-US', {
+      weekday: 'short',
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
+
+    const info = await t.sendMail({
+      from: getSenderAddress(),
+      to,
+      subject: `🎟️ Booking Confirmed — ${eventTitle} (${bookingRef})`,
+      text: `Hi ${customerName},\n\nYour booking for ${eventTitle} is confirmed!\n\nBooking Reference: ${bookingRef}\nDate: ${formattedDate}\nTime: ${showTime}\nVenue: ${venueName}\nSeats: ${seats.join(', ')}\nTotal: ₹${totalPrice.toFixed(2)}\n\nPlease find your QR ticket attached.\n\nThank you for booking with ${env.FROM_NAME}!`,
       html: `
-        <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; background: #1a1a2e; color: #eee; border-radius: 12px; overflow: hidden;">
-          <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center;">
-            <h1 style="margin: 0; font-size: 24px; color: white;">🎫 Booking Confirmed!</h1>
-          </div>
-          <div style="padding: 30px;">
-            <p style="font-size: 18px; margin-bottom: 5px;">Hi <strong>${customerName}</strong>,</p>
-            <p style="color: #aaa; margin-top: 5px;">Your booking has been confirmed. Here are the details:</p>
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Booking Confirmed</title>
+        </head>
+        <body style="margin: 0; padding: 20px; background-color: #0f172a; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #f8fafc;">
+          <div style="max-width: 580px; margin: 0 auto; background: #1e293b; border-radius: 16px; overflow: hidden; border: 1px solid #334155; box-shadow: 0 10px 25px rgba(0,0,0,0.5);">
             
-            <div style="background: #16213e; border-radius: 8px; padding: 20px; margin: 20px 0;">
-              <table style="width: 100%; border-collapse: collapse;">
-                <tr>
-                  <td style="padding: 8px 0; color: #aaa;">Event</td>
-                  <td style="padding: 8px 0; text-align: right; font-weight: bold;">${eventTitle}</td>
-                </tr>
-                <tr>
-                  <td style="padding: 8px 0; color: #aaa;">Date</td>
-                  <td style="padding: 8px 0; text-align: right;">${showDate}</td>
-                </tr>
-                <tr>
-                  <td style="padding: 8px 0; color: #aaa;">Time</td>
-                  <td style="padding: 8px 0; text-align: right;">${showTime}</td>
-                </tr>
-                <tr>
-                  <td style="padding: 8px 0; color: #aaa;">Venue</td>
-                  <td style="padding: 8px 0; text-align: right;">${venueName}</td>
-                </tr>
-                <tr>
-                  <td style="padding: 8px 0; color: #aaa;">Seats</td>
-                  <td style="padding: 8px 0; text-align: right;">${seats.join(', ')}</td>
-                </tr>
-                <tr>
-                  <td style="padding: 8px 0; color: #aaa; border-top: 1px solid #333;">Total</td>
-                  <td style="padding: 8px 0; text-align: right; border-top: 1px solid #333; font-size: 20px; font-weight: bold; color: #667eea;">₹${totalPrice.toFixed(2)}</td>
-                </tr>
-              </table>
+            <!-- Header Banner -->
+            <div style="background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%); padding: 32px 24px; text-align: center;">
+              <h1 style="margin: 0; font-size: 26px; font-weight: 800; color: #ffffff; letter-spacing: -0.5px;">🎟️ Booking Confirmed!</h1>
+              <p style="margin: 8px 0 0 0; color: rgba(255, 255, 255, 0.9); font-size: 15px;">Your ticket is ready. See you at the event!</p>
             </div>
+            
+            <!-- Body Content -->
+            <div style="padding: 32px 24px;">
+              <p style="font-size: 17px; margin: 0 0 8px 0; color: #f8fafc;">Hi <strong>${customerName}</strong>,</p>
+              <p style="color: #94a3b8; font-size: 14px; margin: 0 0 24px 0; line-height: 1.5;">
+                Thank you for your reservation. Here are your verified booking details:
+              </p>
+              
+              <!-- Details Card -->
+              <div style="background: #0f172a; border-radius: 12px; padding: 20px; border: 1px solid #334155; margin-bottom: 24px;">
+                <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+                  <tr>
+                    <td style="padding: 8px 0; color: #94a3b8;">Event</td>
+                    <td style="padding: 8px 0; text-align: right; font-weight: 700; color: #f8fafc;">${eventTitle}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 8px 0; color: #94a3b8;">Date</td>
+                    <td style="padding: 8px 0; text-align: right; color: #f8fafc;">${formattedDate}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 8px 0; color: #94a3b8;">Time</td>
+                    <td style="padding: 8px 0; text-align: right; color: #f8fafc;">${showTime}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 8px 0; color: #94a3b8;">Venue</td>
+                    <td style="padding: 8px 0; text-align: right; color: #f8fafc;">${venueName}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 8px 0; color: #94a3b8;">Seats</td>
+                    <td style="padding: 8px 0; text-align: right; font-weight: 600; color: #a855f7;">${seats.join(', ')}</td>
+                  </tr>
+                  <tr style="border-top: 1px solid #334155;">
+                    <td style="padding: 12px 0 4px 0; color: #94a3b8; font-weight: 600;">Total Paid</td>
+                    <td style="padding: 12px 0 4px 0; text-align: right; font-size: 20px; font-weight: 800; color: #22c55e;">₹${totalPrice.toFixed(2)}</td>
+                  </tr>
+                </table>
+              </div>
 
-            <div style="text-align: center; margin: 20px 0;">
-              <p style="color: #aaa; margin-bottom: 10px;">Booking Reference</p>
-              <p style="font-size: 18px; font-weight: bold; letter-spacing: 2px; color: #667eea;">${bookingRef}</p>
+              <!-- Booking Reference Badge -->
+              <div style="text-align: center; margin: 24px 0; padding: 16px; background: #0f172a; border-radius: 10px; border: 1px dashed #6366f1;">
+                <span style="color: #94a3b8; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; display: block; margin-bottom: 4px;">Booking Reference</span>
+                <span style="font-size: 22px; font-weight: 800; letter-spacing: 3px; color: #818cf8; font-family: monospace;">${bookingRef}</span>
+              </div>
+
+              <!-- QR Code Container -->
+              <div style="text-align: center; margin: 28px 0;">
+                <p style="color: #94a3b8; font-size: 13px; margin: 0 0 12px 0;">Show this QR code at the entrance for direct scan & entry:</p>
+                <div style="display: inline-block; padding: 12px; background: #ffffff; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
+                  <img src="cid:qrcode" alt="Booking QR Code" style="width: 180px; height: 180px; display: block;" />
+                </div>
+              </div>
             </div>
-
-            <div style="text-align: center; margin: 20px 0;">
-              <p style="color: #aaa; margin-bottom: 10px;">Show this QR code at entry</p>
-              <img src="cid:qrcode" alt="QR Code" style="width: 200px; height: 200px; border-radius: 8px;" />
+            
+            <!-- Footer -->
+            <div style="background: #0f172a; padding: 18px 24px; text-align: center; border-top: 1px solid #334155;">
+              <p style="margin: 0; color: #64748b; font-size: 12px;">This is an automated confirmation from ${env.FROM_NAME}. Please do not reply directly to this email.</p>
             </div>
           </div>
-          <div style="background: #0f3460; padding: 15px; text-align: center; color: #aaa; font-size: 12px;">
-            <p style="margin: 0;">This is an automated confirmation. Please do not reply.</p>
-          </div>
-        </div>
+        </body>
+        </html>
       `,
       attachments: [
         {
-          filename: 'qrcode.png',
+          filename: `ticket-${bookingRef}.png`,
           content: base64Data,
-          contentType: 'image/png',
+          encoding: 'base64',
+          cid: 'qrcode',
         },
       ],
     });
 
-    console.log(`[Email] Booking confirmation sent to ${to} for ref ${bookingRef}`);
+    console.log(`[Email] ✅ Booking confirmation email sent to ${to} (Ref: ${bookingRef})`);
+    if (isEthereal) {
+      const previewUrl = nodemailer.getTestMessageUrl(info);
+      console.log(`[Email] 📧 View email preview in browser: ${previewUrl}`);
+    }
   } catch (err) {
-    console.error(`[Email] Failed to send booking confirmation to ${to}:`, err);
-    // Don't throw — email failure shouldn't break the booking
+    console.error(`[Email] ❌ Failed to send booking confirmation email to ${to}:`, err);
   }
 }
 
 /**
- * Send waitlist offer email with time-limited link.
+ * Send waitlist offer email with time-limited claim link.
  */
 export async function sendWaitlistOfferEmail(params: {
   to: string;
@@ -125,51 +205,100 @@ export async function sendWaitlistOfferEmail(params: {
 }): Promise<void> {
   const { to, customerName, eventTitle, showDate, showTime, venueName, category, offerToken, expiresAt } = params;
 
-  if (!env.RESEND_API_KEY) {
-    console.log(`[Email] Skipping waitlist offer email (no API key). Token: ${offerToken}, To: ${to}`);
-    return;
-  }
-
-  const offerUrl = `${env.FRONTEND_URL}/offers/${offerToken}`;
-  const expiresIn = Math.round((expiresAt.getTime() - Date.now()) / 60000);
-
   try {
-    await getResend().emails.send({
-      from: env.FROM_EMAIL,
-      to: [to],
-      subject: `🎉 A seat is available — ${eventTitle}`,
+    const t = await getTransporter();
+
+    const offerUrl = `${env.FRONTEND_URL}/offers/${offerToken}`;
+    const expiresIn = Math.max(1, Math.round((expiresAt.getTime() - Date.now()) / 60000));
+
+    const formattedDate = new Date(showDate).toLocaleDateString('en-US', {
+      weekday: 'short',
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
+
+    const info = await t.sendMail({
+      from: getSenderAddress(),
+      to,
+      subject: `🎉 A seat is available for you — ${eventTitle}!`,
+      text: `Hi ${customerName},\n\nGreat news! A ${category} seat has become available for ${eventTitle} at ${venueName} on ${formattedDate} at ${showTime}.\n\nAccept your offer before it expires in ${expiresIn} minutes:\n${offerUrl}\n\nIf you do not accept within ${expiresIn} minutes, the seat will be offered to the next person in line.`,
       html: `
-        <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; background: #1a1a2e; color: #eee; border-radius: 12px; overflow: hidden;">
-          <div style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); padding: 30px; text-align: center;">
-            <h1 style="margin: 0; font-size: 24px; color: white;">🎉 A Seat is Available!</h1>
-          </div>
-          <div style="padding: 30px;">
-            <p style="font-size: 18px; margin-bottom: 5px;">Hi <strong>${customerName}</strong>,</p>
-            <p style="color: #aaa;">Great news! A <strong>${category}</strong> seat has become available for:</p>
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Waitlist Offer</title>
+        </head>
+        <body style="margin: 0; padding: 20px; background-color: #0f172a; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #f8fafc;">
+          <div style="max-width: 580px; margin: 0 auto; background: #1e293b; border-radius: 16px; overflow: hidden; border: 1px solid #334155; box-shadow: 0 10px 25px rgba(0,0,0,0.5);">
             
-            <div style="background: #16213e; border-radius: 8px; padding: 20px; margin: 20px 0;">
-              <p style="margin: 5px 0;"><strong>${eventTitle}</strong></p>
-              <p style="margin: 5px 0; color: #aaa;">${showDate} at ${showTime}</p>
-              <p style="margin: 5px 0; color: #aaa;">${venueName}</p>
+            <!-- Header Banner -->
+            <div style="background: linear-gradient(135deg, #ec4899 0%, #f43f5e 100%); padding: 32px 24px; text-align: center;">
+              <h1 style="margin: 0; font-size: 26px; font-weight: 800; color: #ffffff; letter-spacing: -0.5px;">🎉 You've Got a Seat!</h1>
+              <p style="margin: 8px 0 0 0; color: rgba(255, 255, 255, 0.9); font-size: 15px;">A waitlisted seat is now reserved for you.</p>
             </div>
+            
+            <!-- Body Content -->
+            <div style="padding: 32px 24px;">
+              <p style="font-size: 17px; margin: 0 0 8px 0; color: #f8fafc;">Hi <strong>${customerName}</strong>,</p>
+              <p style="color: #94a3b8; font-size: 14px; margin: 0 0 24px 0; line-height: 1.5;">
+                A <strong style="color: #ec4899;">${category}</strong> seat just opened up for you! Details are below:
+              </p>
+              
+              <!-- Details Card -->
+              <div style="background: #0f172a; border-radius: 12px; padding: 20px; border: 1px solid #334155; margin-bottom: 24px;">
+                <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+                  <tr>
+                    <td style="padding: 8px 0; color: #94a3b8;">Event</td>
+                    <td style="padding: 8px 0; text-align: right; font-weight: 700; color: #f8fafc;">${eventTitle}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 8px 0; color: #94a3b8;">Date & Time</td>
+                    <td style="padding: 8px 0; text-align: right; color: #f8fafc;">${formattedDate} at ${showTime}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 8px 0; color: #94a3b8;">Venue</td>
+                    <td style="padding: 8px 0; text-align: right; color: #f8fafc;">${venueName}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 8px 0; color: #94a3b8;">Category</td>
+                    <td style="padding: 8px 0; text-align: right; font-weight: 600; color: #ec4899;">${category}</td>
+                  </tr>
+                </table>
+              </div>
 
-            <div style="text-align: center; margin: 30px 0;">
-              <a href="${offerUrl}" style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; text-decoration: none; padding: 15px 40px; border-radius: 8px; font-size: 16px; font-weight: bold;">
-                Accept This Offer
-              </a>
+              <!-- CTA Button -->
+              <div style="text-align: center; margin: 32px 0;">
+                <a href="${offerUrl}" style="display: inline-block; background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%); color: #ffffff; text-decoration: none; padding: 16px 36px; border-radius: 10px; font-size: 16px; font-weight: 700; box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);">
+                  👉 Accept Offer & Confirm Ticket
+                </a>
+              </div>
+
+              <!-- Expiry Alert -->
+              <div style="background: rgba(244, 63, 94, 0.1); border: 1px solid rgba(244, 63, 94, 0.3); border-radius: 10px; padding: 16px; text-align: center;">
+                <p style="margin: 0; color: #fb7185; font-weight: 700; font-size: 14px;">⏰ This offer expires in ${expiresIn} minutes</p>
+                <p style="margin: 6px 0 0 0; color: #94a3b8; font-size: 12px;">If you do not complete your booking in time, the seat will automatically pass to the next waiting customer.</p>
+              </div>
             </div>
-
-            <div style="background: #16213e; border-radius: 8px; padding: 15px; text-align: center;">
-              <p style="margin: 0; color: #f5576c; font-weight: bold;">⏰ This offer expires in ${expiresIn} minutes</p>
-              <p style="margin: 5px 0 0 0; color: #aaa; font-size: 12px;">If you don't accept in time, the seat will be offered to the next person.</p>
+            
+            <!-- Footer -->
+            <div style="background: #0f172a; padding: 18px 24px; text-align: center; border-top: 1px solid #334155;">
+              <p style="margin: 0; color: #64748b; font-size: 12px;">This is an automated message from ${env.FROM_NAME}. Please do not reply directly to this email.</p>
             </div>
           </div>
-        </div>
+        </body>
+        </html>
       `,
     });
 
-    console.log(`[Email] Waitlist offer sent to ${to}, token: ${offerToken}`);
+    console.log(`[Email] ✅ Waitlist offer email sent to ${to} (Token: ${offerToken})`);
+    if (isEthereal) {
+      const previewUrl = nodemailer.getTestMessageUrl(info);
+      console.log(`[Email] 📧 View email preview in browser: ${previewUrl}`);
+    }
   } catch (err) {
-    console.error(`[Email] Failed to send waitlist offer to ${to}:`, err);
+    console.error(`[Email] ❌ Failed to send waitlist offer email to ${to}:`, err);
   }
 }
