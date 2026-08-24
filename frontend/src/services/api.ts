@@ -1,9 +1,12 @@
 import axios from 'axios';
 
-let apiBase = import.meta.env.VITE_API_URL || '/api';
+let apiBase = (import.meta.env.VITE_API_URL || '/api').trim();
+
 if (apiBase && !apiBase.startsWith('http://') && !apiBase.startsWith('https://') && !apiBase.startsWith('/')) {
   apiBase = `https://${apiBase}`;
 }
+apiBase = apiBase.replace(/\/+$/, '');
+
 
 
 const api = axios.create({

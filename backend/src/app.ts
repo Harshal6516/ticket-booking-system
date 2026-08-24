@@ -16,10 +16,11 @@ const app = express();
 // Global Middleware
 // ============================================================
 app.use(cors({
-  origin: env.FRONTEND_URL,
+  origin: true,
   credentials: true,
 }));
 app.use(express.json());
+
 
 // ============================================================
 // Health check

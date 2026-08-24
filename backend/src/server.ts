@@ -13,10 +13,12 @@ const server = http.createServer(app);
 // ============================================================
 const io = new SocketIOServer(server, {
   cors: {
-    origin: env.FRONTEND_URL,
+    origin: true,
     methods: ['GET', 'POST'],
+    credentials: true,
   },
 });
+
 
 // Register the io instance globally so routes/services can access it
 setIO(io);
