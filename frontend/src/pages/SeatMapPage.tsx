@@ -77,10 +77,14 @@ export default function SeatMapPage() {
   useEffect(() => {
     if (!showId) return;
 
-    const socketUrl = import.meta.env.VITE_SOCKET_URL || import.meta.env.VITE_API_URL || window.location.origin;
+    let socketUrl = import.meta.env.VITE_SOCKET_URL || import.meta.env.VITE_API_URL || window.location.origin;
+    if (socketUrl && !socketUrl.startsWith('http://') && !socketUrl.startsWith('https://') && !socketUrl.startsWith('/')) {
+      socketUrl = `https://${socketUrl}`;
+    }
     const newSocket = io(socketUrl, {
       transports: ['websocket', 'polling'],
     });
+
 
 
     newSocket.on('connect', () => {

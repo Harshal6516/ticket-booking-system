@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import pool from './pool';
 
-async function migrate() {
+export async function runMigrations(): Promise<void> {
   const client = await pool.connect();
 
   try {
@@ -26,44 +26,53 @@ async function migrate() {
     if (!fs.existsSync(migrationsDir)) {
       migrationsDir = path.join(__dirname, '../../src/db/migrations');
     }
-    const files = fs.readdirSync(migrationsDir)
-      .filter(f => f.endsWith('.sql'))
-      .sort();
+    if (!fs.existsSync(migrationsDir)) {
+      migrationsDir = path.join(process.cwd(), 'src/db/migrations');
+    }
+    
+    if (fs.existsSync(migrationsDir)) {
+      const files = fs.readdirSync(migrationsDir)
+        .filter(f => f.endsWith('.sql'))
+        .sort();
 
+      for (const file of files) {
+        if (appliedSet.has(file)) {
+          console.log(`  ✓ Already applied: ${file}`);
+          continue;
+        }
 
-    for (const file of files) {
-      if (appliedSet.has(file)) {
-        console.log(`  ✓ Already applied: ${file}`);
-        continue;
-      }
+        console.log(`  → Applying: ${file}`);
+        const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf-8');
 
-      console.log(`  → Applying: ${file}`);
-      const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf-8');
-
-      await client.query('BEGIN');
-      try {
-        await client.query(sql);
-        await client.query(
-          'INSERT INTO _migrations (filename) VALUES ($1)',
-          [file]
-        );
-        await client.query('COMMIT');
-        console.log(`  ✓ Applied: ${file}`);
-      } catch (err) {
-        await client.query('ROLLBACK');
-        console.error(`  ✗ Failed: ${file}`, err);
-        throw err;
+        await client.query('BEGIN');
+        try {
+          await client.query(sql);
+          await client.query(
+            'INSERT INTO _migrations (filename) VALUES ($1)',
+            [file]
+          );
+          await client.query('COMMIT');
+          console.log(`  ✓ Applied: ${file}`);
+        } catch (err) {
+          await client.query('ROLLBACK');
+          console.error(`  ✗ Failed: ${file}`, err);
+          throw err;
+        }
       }
     }
 
-    console.log('\nAll migrations applied successfully.');
+    console.log('\n[Database] All migrations applied successfully.');
   } finally {
     client.release();
-    await pool.end();
   }
 }
 
-migrate().catch((err) => {
-  console.error('Migration failed:', err);
-  process.exit(1);
-});
+// Allow direct CLI execution: node dist/db/migrate.js or tsx src/db/migrate.ts
+if (require.main === module) {
+  runMigrations()
+    .then(() => pool.end())
+    .catch((err) => {
+      console.error('Migration failed:', err);
+      process.exit(1);
+    });
+}

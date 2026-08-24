@@ -4,6 +4,7 @@ import app from './app';
 import { env } from './config/env';
 import { setIO } from './socket';
 import { startSweepJob } from './jobs/sweepJob';
+import { runMigrations } from './db/migrate';
 
 const server = http.createServer(app);
 
@@ -40,18 +41,26 @@ io.on('connection', (socket) => {
 });
 
 // ============================================================
-// Start sweep job
+// Start server with automatic migrations
 // ============================================================
-startSweepJob();
+async function startServer() {
+  try {
+    await runMigrations();
+  } catch (err) {
+    console.error('[Server] Migration error on startup:', err);
+  }
 
-// ============================================================
-// Start server
-// ============================================================
-server.listen(env.PORT, () => {
-  console.log(`\n🎫 Ticket Booking API running on http://localhost:${env.PORT}`);
-  console.log(`   Environment: ${env.NODE_ENV}`);
-  console.log(`   Frontend URL: ${env.FRONTEND_URL}`);
-  console.log(`   Hold TTL: ${env.HOLD_TTL_MINUTES} minutes`);
-  console.log(`   Offer TTL: ${env.OFFER_TTL_MINUTES} minutes`);
-  console.log(`   Sweep interval: ${env.SWEEP_INTERVAL_MS}ms\n`);
-});
+  startSweepJob();
+
+  server.listen(env.PORT, () => {
+    console.log(`\n🎫 Ticket Booking API running on http://localhost:${env.PORT}`);
+    console.log(`   Environment: ${env.NODE_ENV}`);
+    console.log(`   Frontend URL: ${env.FRONTEND_URL}`);
+    console.log(`   Hold TTL: ${env.HOLD_TTL_MINUTES} minutes`);
+    console.log(`   Offer TTL: ${env.OFFER_TTL_MINUTES} minutes`);
+    console.log(`   Sweep interval: ${env.SWEEP_INTERVAL_MS}ms\n`);
+  });
+}
+
+startServer();
+
