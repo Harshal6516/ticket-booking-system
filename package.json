@@ -9,7 +9,10 @@
     "build:backend": "cd backend && npm run build",
     "build:frontend": "cd frontend && npm run build",
     "install:all": "cd backend && npm install && cd ../frontend && npm install",
-    "db:migrate": "cd backend && npm run db:migrate"
+    "db:migrate": "cd backend && npm run db:migrate",
+    "db:start": "pg_ctl start -D ./pgdata -l ./logfile",
+    "db:stop": "pg_ctl stop -D ./pgdata",
+    "db:status": "pg_ctl status -D ./pgdata"
   },
   "keywords": ["ticket-booking", "seat-map", "real-time", "waitlist"],
   "license": "ISC"
